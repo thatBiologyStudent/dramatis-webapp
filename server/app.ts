@@ -10,7 +10,7 @@ import {
   setSessionCookie,
   verifyOAuthState,
   type SessionPayload,
-} from './auth';
+} from './auth.js';
 import {
   createCommunityPreset,
   deleteCommunityPreset,
@@ -23,13 +23,13 @@ import {
   setVerifiedCreator,
   updateCommunityPreset,
   type StoredCommunityPreset,
-} from './db';
+} from './db.js';
 import {
   buildDiscordAvatarUrl,
   exchangeDiscordCode,
   getDiscordEnv,
   sendSubmissionWebhook,
-} from './discord';
+} from './discord.js';
 
 interface AuthedRequest extends Request {
   user?: SessionPayload & { isAdmin: boolean };
