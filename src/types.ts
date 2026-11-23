@@ -75,6 +75,8 @@ export interface CreatorPreset {
   ownerUsername?: string;
   verificationCode?: string;
   reviewNote?: string;
+  /** On a local preset: id of the online copy waiting for review. The local copy is replaced once that goes live. */
+  submittedAs?: string;
   updatedAt: string;
   fields: PresetField[];
 }

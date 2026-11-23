@@ -1397,7 +1397,17 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                       </button>
 
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {isLocalCustom && (
+                        {isLocalCustom && preset.submittedAs && (
+                          <span
+                            title="Waiting for review. This local copy is replaced by the online one once it's approved."
+                            className="inline-flex items-center gap-1.5 min-h-[38px] rounded-lg border border-amber-300/70 dark:border-amber-500/30 bg-amber-50/70 dark:bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>In review</span>
+                          </span>
+                        )}
+
+                        {isLocalCustom && !preset.submittedAs && (
                           <button
                             type="button"
                             onClick={() => setSubmitModalPreset(preset)}
@@ -2371,17 +2381,24 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                           </p>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPublishModal(false);
-                          setSubmitModalPreset(preset);
-                        }}
-                        className="inline-flex items-center gap-1.5 min-h-[36px] rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 shrink-0 cursor-pointer"
-                      >
-                        <Globe className="w-3.5 h-3.5" />
-                        <span>Publish</span>
-                      </button>
+                      {preset.submittedAs ? (
+                        <span className="inline-flex items-center gap-1.5 min-h-[36px] rounded-lg border border-amber-300/70 dark:border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 shrink-0">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>In review</span>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowPublishModal(false);
+                            setSubmitModalPreset(preset);
+                          }}
+                          className="inline-flex items-center gap-1.5 min-h-[36px] rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 shrink-0 cursor-pointer"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Publish</span>
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

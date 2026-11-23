@@ -249,9 +249,28 @@ export default function App() {
     setPendingReviews([]);
   };
 
+  // Once a local preset's online copy is live, the local copy goes away and characters
+  // that used it switch to the online one (field ids are kept, so nothing written is lost).
+  const replaceLocalWithOnline = useCallback((localId: string, onlineId: string) => {
+    setCustomPresets((prev) => prev.filter((p) => p.id !== localId));
+    setCharacters((prev) =>
+      prev.map((c) => (c.presetId === localId ? { ...c, presetId: onlineId } : c))
+    );
+  }, []);
+
   const handleSubmitPublicPreset = async (preset: CreatorPreset, verificationCode: string) => {
     const result = await submitPublicPresetApi(preset, verificationCode);
     await refreshCommunityData(discordUser);
+    if (!preset.isBuiltIn && !preset.isCommunity) {
+      if (result.autoApproved) {
+        replaceLocalWithOnline(preset.id, result.preset.id);
+      } else {
+        // Keep the local copy while it is reviewed, linked to its online copy.
+        setCustomPresets((prev) =>
+          prev.map((p) => (p.id === preset.id ? { ...p, submittedAs: result.preset.id } : p))
+        );
+      }
+    }
     return result;
   };
 
@@ -292,6 +311,24 @@ export default function App() {
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
     return [...all.filter(isOwner), ...rest];
   }, [communityPresets, customPresets]);
+
+  // Approved: replace the local copy. Rejected: unlink it so it can be edited and sent again.
+  useEffect(() => {
+    const liveIds = new Set(communityPresets.map((p) => p.id));
+    const rejectedIds = new Set(
+      mySubmissions.filter((p) => p.communityStatus === 'rejected').map((p) => p.id)
+    );
+    for (const local of customPresets) {
+      if (!local.submittedAs) continue;
+      if (liveIds.has(local.submittedAs)) {
+        replaceLocalWithOnline(local.id, local.submittedAs);
+      } else if (rejectedIds.has(local.submittedAs)) {
+        setCustomPresets((prev) =>
+          prev.map((p) => (p.id === local.id ? { ...p, submittedAs: undefined } : p))
+        );
+      }
+    }
+  }, [communityPresets, mySubmissions, customPresets, replaceLocalWithOnline]);
 
   const [characters, setCharacters] = useState<CharacterDraft[]>(() => {
     const stored = safeReadJson<CharacterDraft[]>(STORAGE_KEYS.CHARACTERS, []);
