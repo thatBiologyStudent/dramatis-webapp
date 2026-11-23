@@ -171,7 +171,9 @@ export const CharacterLibrary: React.FC<CharacterLibraryProps> = ({
       {filteredCharacters.length === 0 ? (
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#12141A] p-12 text-center space-y-3">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            No matching characters found.
+            {characters.length === 0
+              ? 'No characters yet. Start your first one: pick a preset and Dramatis walks you through it step by step.'
+              : 'No matching characters found.'}
           </p>
           <button
             type="button"
@@ -269,7 +271,7 @@ export const CharacterLibrary: React.FC<CharacterLibraryProps> = ({
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
-                    {characters.length > 1 && (
+                    {characters.length > 0 && (
                       <button
                         type="button"
                         onClick={() => onDeleteCharacter(character.id)}

@@ -1231,20 +1231,16 @@ export function buildInitialValuesForPreset(
   return values;
 }
 
-/** First-visit character: a blank draft on the Slice of Life preset. */
-const STARTER_PRESET = BUILT_IN_PRESETS[0];
+/** New visitors start with no characters; they create their first one from the Characters page. */
+export const STARTER_CHARACTERS: CharacterDraft[] = [];
 
-export const STARTER_CHARACTERS: CharacterDraft[] = [
-  {
-    id: 'char-starter',
-    name: 'New Character',
-    tagline: '',
-    presetId: STARTER_PRESET.id,
-    avatarUrl: '',
-    createdAt: '2026-11-23T00:00:00Z',
-    updatedAt: '2026-11-23T00:00:00Z',
-    activeStepIndex: 0,
-    completedFieldIds: [],
-    values: buildInitialValuesForPreset(STARTER_PRESET),
-  },
-];
+/**
+ * Example characters shipped by earlier versions. They are dropped from saved data
+ * on load, but only while untouched (same updatedAt as shipped), so edited ones stay.
+ */
+export const RETIRED_EXAMPLE_CHARACTERS: Record<string, string> = {
+  'char-clara-voss': '2026-11-21T18:10:00Z',
+  'char-linnea-kade': '2026-11-20T21:40:00Z',
+  'char-arthur-cole': '2026-11-19T11:05:00Z',
+  'char-starter': '2026-11-23T00:00:00Z',
+};

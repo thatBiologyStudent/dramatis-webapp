@@ -13,6 +13,7 @@ import {
 import {
   BUILT_IN_PRESETS,
   buildInitialValuesForPreset,
+  RETIRED_EXAMPLE_CHARACTERS,
   STARTER_CHARACTERS,
 } from './data/presets';
 import { getEffectivePresetFields, getMissingStandardFields } from './utils/tokens';
@@ -69,7 +70,7 @@ function safeReadJson<T>(key: string, fallback: T): T {
 }
 
 export default function App() {
-  const [view, setView] = useState<AppView>('studio');
+  const [view, setView] = useState<AppView>('characters');
 
   const [isDark, setIsDark] = useState<boolean>(() => {
     try {
@@ -294,7 +295,8 @@ export default function App() {
 
   const [characters, setCharacters] = useState<CharacterDraft[]>(() => {
     const stored = safeReadJson<CharacterDraft[]>(STORAGE_KEYS.CHARACTERS, []);
-    return stored.length > 0 ? stored : STARTER_CHARACTERS;
+    const kept = stored.filter((c) => RETIRED_EXAMPLE_CHARACTERS[c.id] !== c.updatedAt);
+    return kept.length > 0 ? kept : STARTER_CHARACTERS;
   });
 
   const [activeCharacterId, setActiveCharacterId] = useState<string>(() => {
@@ -304,7 +306,7 @@ export default function App() {
     } catch {
       // ignore
     }
-    return STARTER_CHARACTERS[0].id;
+    return STARTER_CHARACTERS[0]?.id ?? '';
   });
 
   const [mode, setMode] = useState<WorkspaceMode>(() => {
@@ -494,10 +496,9 @@ export default function App() {
 
   const handleDeleteCharacter = (characterId: string) => {
     setCharacters((prev) => {
-      if (prev.length <= 1) return prev;
       const next = prev.filter((c) => c.id !== characterId);
-      if (activeCharacterId === characterId && next[0]) {
-        setActiveCharacterId(next[0].id);
+      if (activeCharacterId === characterId) {
+        setActiveCharacterId(next[0]?.id ?? '');
       }
       return next;
     });
@@ -663,9 +664,9 @@ export default function App() {
   };
 
   const navItems: { id: AppView; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'studio', label: 'Studio', icon: BookOpen },
-    { id: 'presets', label: 'Presets', icon: Layers },
     { id: 'characters', label: 'Characters', icon: Users },
+    { id: 'presets', label: 'Presets', icon: Layers },
+    { id: 'studio', label: 'Studio', icon: BookOpen },
     { id: 'api', label: 'API Setup', icon: SlidersHorizontal },
   ];
 
@@ -677,7 +678,7 @@ export default function App() {
           {/* Zone 1: Brand logo + wordmark */}
           <button
             type="button"
-            onClick={() => setView('studio')}
+            onClick={() => setView('characters')}
             className="inline-flex items-center gap-2.5 font-display text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-50 whitespace-nowrap shrink-0 cursor-pointer"
           >
             <img
@@ -730,6 +731,33 @@ export default function App() {
 
       {/* Main Active Workspace */}
       <main className="flex-1">
+        {view === 'studio' && !activeCharacter && (
+          <div className="max-w-xl mx-auto px-4 pt-20 pb-24 text-center space-y-4">
+            <h1 className="font-display text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+              No character open yet
+            </h1>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              The Studio is where you write a character step by step. Start a new character, or open one from the Characters page.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => openNewCharacterModal()}
+                className="min-h-[42px] rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer"
+              >
+                New Character
+              </button>
+              <button
+                type="button"
+                onClick={() => setView('characters')}
+                className="min-h-[42px] rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 cursor-pointer"
+              >
+                Go to Characters
+              </button>
+            </div>
+          </div>
+        )}
+
         {view === 'studio' && activeCharacter && activePreset && (
           <StepBuilder
             character={activeCharacter}
