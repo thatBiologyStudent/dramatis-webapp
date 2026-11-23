@@ -126,10 +126,12 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
   // "Generate with Alembic": picture coming back from Alembic, shown in the crop window
   const [alembicImage, setAlembicImage] = useState<string | null>(null);
   const [alembicError, setAlembicError] = useState<string | null>(null);
+  const [alembicHint, setAlembicHint] = useState(false);
   const alembicCleanup = useRef<(() => void) | null>(null);
   useEffect(() => () => alembicCleanup.current?.(), []);
   const generateWithAlembic = () => {
     setAlembicError(null);
+    setAlembicHint(false);
     alembicCleanup.current?.();
     try {
       alembicCleanup.current = openAlembicPortrait(
@@ -138,7 +140,11 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
           prompt: buildPortraitPrompt(character, preset, '2:3'),
           aspect: '2:3',
         },
-        (dataUrl) => setAlembicImage(dataUrl)
+        (dataUrl) => {
+          setAlembicHint(false);
+          setAlembicImage(dataUrl);
+        },
+        () => setAlembicHint(true)
       );
     } catch (err) {
       setAlembicError(err instanceof Error ? err.message : 'Could not open Alembic.');
@@ -482,6 +488,11 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
               <Wand2 className="w-3 h-3" />
               <span>{alembicError ? 'Pop-up blocked' : 'Generate with Alembic'}</span>
             </button>
+            {alembicHint && (
+              <p className="max-w-[9.5rem] text-center text-[10px] leading-snug text-amber-600 dark:text-amber-400">
+                Alembic didn&apos;t answer. It may have been updating: close its window and click again.
+              </p>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

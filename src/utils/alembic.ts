@@ -49,17 +49,21 @@ export function buildPortraitPrompt(character: CharacterDraft, preset: CreatorPr
  */
 export function openAlembicPortrait(
   request: { characterName: string; prompt: string; aspect: string },
-  onImage: (dataUrl: string) => void
+  onImage: (dataUrl: string) => void,
+  /** Called once if Alembic hasn't answered after a while (e.g. an old cached copy) */
+  onNoAnswer?: () => void
 ): () => void {
   const url = new URL(alembicUrl());
   url.searchParams.set('from', 'dramatis');
   const origin = url.origin;
   let win: Window | null = null;
+  let answered = false;
 
   const onMessage = (e: MessageEvent) => {
     if (e.origin !== origin || !win || e.source !== win) return;
     const d = e.data as Record<string, unknown> | null;
     if (d?.type === 'alembic:ready') {
+      answered = true;
       win.postMessage({ type: 'dramatis:portrait-request', ...request }, origin);
     } else if (d?.type === 'alembic:portrait' && typeof d.dataUrl === 'string' && d.dataUrl.startsWith('data:image/')) {
       onImage(d.dataUrl);
@@ -69,6 +73,7 @@ export function openAlembicPortrait(
   const cleanup = () => {
     window.removeEventListener('message', onMessage);
     window.clearInterval(timer);
+    window.clearTimeout(noAnswer);
   };
 
   window.addEventListener('message', onMessage);
@@ -76,6 +81,9 @@ export function openAlembicPortrait(
   const timer = window.setInterval(() => {
     if (!win || win.closed) cleanup();
   }, 1000);
+  const noAnswer = window.setTimeout(() => {
+    if (!answered && win && !win.closed) onNoAnswer?.();
+  }, 12000);
   if (!win) {
     cleanup();
     throw new Error('Your browser blocked the Alembic window. Allow pop-ups for this site and try again.');
