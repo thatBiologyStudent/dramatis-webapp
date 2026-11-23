@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Copy, Download, Plus, Search, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, ImageDown, Plus, Search, Trash2, Upload } from 'lucide-react';
 import { CharacterDraft, CreatorPreset } from '../types';
 import {
   compileCharacterCardV2,
@@ -8,6 +8,9 @@ import {
   isFieldUntouchedTemplate,
 } from '../utils/tokens';
 import { AvatarFrame } from './AvatarFrame';
+import { downloadCharacterPng, imageFileToStoredPortrait } from '../utils/pngCard';
+import { extractCharaJsonFromPng } from '../utils/templateExtractor';
+import { withBase } from '../utils/base';
 import { PWAInstallButton } from './PWAInstallButton';
 
 interface CharacterLibraryProps {
@@ -18,7 +21,7 @@ interface CharacterLibraryProps {
   onDuplicateCharacter: (characterId: string) => void;
   onDeleteCharacter: (characterId: string) => void;
   onOpenNewCharacterModal: () => void;
-  onImportV2Card: (rawJson: string) => { ok: boolean; error?: string };
+  onImportV2Card: (rawJson: string, avatarUrl?: string) => { ok: boolean; error?: string };
 }
 
 export const CharacterLibrary: React.FC<CharacterLibraryProps> = ({
@@ -57,6 +60,20 @@ export const CharacterLibrary: React.FC<CharacterLibraryProps> = ({
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.type === 'image/png' || /\.png$/i.test(file.name)) {
+      e.target.value = '';
+      void (async () => {
+        const json = extractCharaJsonFromPng(await file.arrayBuffer());
+        if (!json) {
+          setImportError('This PNG has no character card inside. Use a character card PNG or a .json card.');
+          return;
+        }
+        const avatar = await imageFileToStoredPortrait(file).catch(() => '');
+        const res = onImportV2Card(json, avatar || undefined);
+        setImportError(res.ok ? null : res.error || 'Could not import this character card.');
+      })();
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       const content = typeof reader.result === 'string' ? reader.result : '';
@@ -106,7 +123,7 @@ export const CharacterLibrary: React.FC<CharacterLibraryProps> = ({
           <input
             ref={fileRef}
             type="file"
-            accept=".json,application/json"
+            accept=".json,.png,application/json,image/png"
             onChange={handleImportFile}
             className="hidden"
           />
@@ -116,7 +133,7 @@ export const CharacterLibrary: React.FC<CharacterLibraryProps> = ({
             className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#14171F] px-4 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-blue-500 transition-colors cursor-pointer"
           >
             <Upload className="w-4 h-4" />
-            <span>Import Card V2</span>
+            <span>Import Card</span>
           </button>
           <button
             type="button"
@@ -261,6 +278,23 @@ export const CharacterLibrary: React.FC<CharacterLibraryProps> = ({
                       className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const preset = presetMap.get(character.presetId) || presets[0];
+                        if (!preset) return;
+                        void downloadCharacterPng({
+                          card: compileCharacterCardV2(character, preset),
+                          avatarSrc: character.avatarUrl ? withBase(character.avatarUrl) : undefined,
+                          name: character.name,
+                        });
+                      }}
+                      title="Export PNG character card"
+                      aria-label={`Export ${character.name} as PNG card`}
+                      className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 cursor-pointer"
+                    >
+                      <ImageDown className="w-3.5 h-3.5" />
                     </button>
                     <button
                       type="button"

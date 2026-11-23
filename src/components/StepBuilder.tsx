@@ -42,6 +42,8 @@ import {
 import { resolveFieldTemplate } from '../data/presets';
 import { requestFieldAssistance } from '../utils/openaiClient';
 import { AvatarFrame } from './AvatarFrame';
+import { downloadCharacterPng } from '../utils/pngCard';
+import { withBase } from '../utils/base';
 import { CreatorPageLink } from './CreatorPageLink';
 import { PWAInstallButton } from './PWAInstallButton';
 
@@ -433,6 +435,8 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
             name={character.name}
             size="md"
             editable
+            cropAspects={['original', '2:3', '3:4', '1:1']}
+            maxOutput={1024}
             onChangeAvatar={(dataUrl) =>
               onUpdateCharacter((prev) => ({
                 ...prev,
@@ -1703,6 +1707,23 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
                 <div className="flex flex-wrap items-center gap-2.5 pt-2">
                   <button
                     type="button"
+                    title="A picture of your character with the whole card inside. Wyvern, SillyTavern and Chub can import it."
+                    onClick={() =>
+                      void downloadCharacterPng({
+                        card: compileCharacterCardV2(character, preset),
+                        avatarSrc: character.avatarUrl ? withBase(character.avatarUrl) : undefined,
+                        name: character.name,
+                      }).catch((err: unknown) =>
+                        window.alert(err instanceof Error ? err.message : 'Could not create the PNG card.')
+                      )
+                    }
+                    className="inline-flex items-center gap-2 min-h-[44px] rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Export PNG Card (.png)</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() =>
                       downloadFile(
                         JSON.stringify(compileCharacterCardV2(character, preset), null, 2),
@@ -1710,10 +1731,10 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
                         'application/json'
                       )
                     }
-                    className="inline-flex items-center gap-2 min-h-[44px] rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161922] px-4 py-2.5 text-sm font-medium text-zinc-800 dark:text-zinc-200 hover:border-blue-500 transition-colors cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Export Character JSON (.json)</span>
+                    <span>Export JSON (.json)</span>
                   </button>
                   <button
                     type="button"

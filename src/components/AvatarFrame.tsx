@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Upload, User } from 'lucide-react';
 import { withBase } from '../utils/base';
+import { CropAspect, ImageCropDialog, readFileAsDataUrl } from './ImageCropDialog';
 
 interface AvatarFrameProps {
   src?: string;
@@ -8,6 +9,10 @@ interface AvatarFrameProps {
   size?: 'sm' | 'md' | 'lg';
   editable?: boolean;
   onChangeAvatar?: (dataUrl: string) => void;
+  /** Shapes offered when cropping a new picture (default: square only) */
+  cropAspects?: CropAspect[];
+  /** Longest side of the saved picture in pixels (default 384) */
+  maxOutput?: number;
 }
 
 const SIZE_CLASSES: Record<'sm' | 'md' | 'lg', string> = {
@@ -16,49 +21,17 @@ const SIZE_CLASSES: Record<'sm' | 'md' | 'lg', string> = {
   lg: 'w-24 h-24 rounded-2xl text-2xl',
 };
 
-/** Reads an image file and returns a square, centre-cropped 384px JPEG data URL. */
-export function fileToAvatarDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Could not read this image.'));
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : '';
-      if (!result) {
-        reject(new Error('Could not read this image.'));
-        return;
-      }
-      const img = new Image();
-      img.onerror = () => reject(new Error('This file is not a supported image.'));
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const targetSize = 384;
-        canvas.width = targetSize;
-        canvas.height = targetSize;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(result);
-          return;
-        }
-        const minSide = Math.min(img.width, img.height);
-        const sx = (img.width - minSide) / 2;
-        const sy = (img.height - minSide) / 2;
-        ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, targetSize, targetSize);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
-      };
-      img.src = result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 export const AvatarFrame: React.FC<AvatarFrameProps> = ({
   src,
   name,
   size = 'md',
   editable = false,
   onChangeAvatar,
+  cropAspects = ['1:1'],
+  maxOutput = 384,
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -76,10 +49,7 @@ export const AvatarFrame: React.FC<AvatarFrameProps> = ({
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !onChangeAvatar) return;
-    void fileToAvatarDataUrl(file).then((dataUrl) => {
-      setImgFailed(false);
-      onChangeAvatar(dataUrl);
-    });
+    void readFileAsDataUrl(file).then(setCropSrc).catch(() => undefined);
   };
 
   const showImage = Boolean(src) && !imgFailed;
@@ -92,7 +62,7 @@ export const AvatarFrame: React.FC<AvatarFrameProps> = ({
           alt={name ? `Portrait of ${name}` : 'Character portrait'}
           referrerPolicy="no-referrer"
           onError={() => setImgFailed(true)}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover object-[50%_22%]"
         />
       ) : (
         <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-zinc-200/80 to-zinc-100 dark:from-[#1B202C] dark:to-[#12141A] text-zinc-600 dark:text-zinc-300 font-display font-semibold select-none">
@@ -121,6 +91,19 @@ export const AvatarFrame: React.FC<AvatarFrameProps> = ({
           </button>
         </>
       )}
+      {cropSrc && onChangeAvatar && (
+        <ImageCropDialog
+          src={cropSrc}
+          aspects={cropAspects}
+          maxOutput={maxOutput}
+          onCancel={() => setCropSrc(null)}
+          onDone={(dataUrl) => {
+            setCropSrc(null);
+            setImgFailed(false);
+            onChangeAvatar(dataUrl);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -144,14 +127,15 @@ export const CreatorAvatarPicker: React.FC<CreatorAvatarPickerProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
     setError(null);
-    fileToAvatarDataUrl(file)
-      .then(onChange)
+    readFileAsDataUrl(file)
+      .then(setCropSrc)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Could not read this image.'));
   };
 
@@ -205,6 +189,19 @@ export const CreatorAvatarPicker: React.FC<CreatorAvatarPickerProps> = ({
           </p>
         )}
       </div>
+      {cropSrc && (
+        <ImageCropDialog
+          src={cropSrc}
+          aspects={['1:1']}
+          maxOutput={384}
+          title="Crop creator picture"
+          onCancel={() => setCropSrc(null)}
+          onDone={(dataUrl) => {
+            setCropSrc(null);
+            onChange(dataUrl);
+          }}
+        />
+      )}
     </div>
   );
 };

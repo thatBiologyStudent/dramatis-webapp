@@ -560,7 +560,7 @@ export default function App() {
     });
   };
 
-  const handleImportV2Card = (rawJson: string): { ok: boolean; error?: string } => {
+  const handleImportV2Card = (rawJson: string, avatarUrl?: string): { ok: boolean; error?: string } => {
     try {
       const parsed = JSON.parse(rawJson);
       const data = parsed?.data && typeof parsed.data === 'object' ? parsed.data : parsed;
@@ -659,7 +659,7 @@ export default function App() {
         name: data.name.trim() || 'Imported Character',
         tagline: typeof dramatisExt?.tagline === 'string' ? dramatisExt.tagline : 'Imported Card V2',
         presetId: matchedPreset.id,
-        avatarUrl: '',
+        avatarUrl: avatarUrl || '',
         values,
         standardOverrides,
         includeExtraStandardFields: includeExtra,
