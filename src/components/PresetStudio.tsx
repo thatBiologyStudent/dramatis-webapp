@@ -106,6 +106,14 @@ const OUTPUT_FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
   { value: 'plain', label: 'Plain Labeled Blocks' },
 ];
 
+type PresetSource = 'local' | 'all' | 'online';
+const SOURCE_FILTER_KEY = 'dramatis_preset_source_v1';
+const SOURCE_OPTIONS: { id: PresetSource; label: string; hint: string }[] = [
+  { id: 'local', label: 'Local only', hint: 'Presets built into Dramatis and the ones saved in this browser' },
+  { id: 'all', label: 'All presets', hint: 'Local and online presets together' },
+  { id: 'online', label: 'Online only', hint: 'Presets published by creators for everyone' },
+];
+
 function createEmptyField(index: number): PresetField {
   const id = `field-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   return {
@@ -301,8 +309,28 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
     }
   };
 
-  const filteredPresets = presets.filter((p) =>
-    formatFilter === 'all' ? true : p.formatStyle === formatFilter
+  // Local = shipped with the app or saved in this browser (works offline); Online = published community presets.
+  const [sourceFilter, setSourceFilterState] = useState<PresetSource>(() => {
+    try {
+      const saved = localStorage.getItem(SOURCE_FILTER_KEY);
+      return saved === 'local' || saved === 'online' ? saved : 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const setSourceFilter = (next: PresetSource) => {
+    setSourceFilterState(next);
+    try {
+      localStorage.setItem(SOURCE_FILTER_KEY, next);
+    } catch {
+      // not important
+    }
+  };
+
+  const filteredPresets = presets.filter(
+    (p) =>
+      (formatFilter === 'all' || p.formatStyle === formatFilter) &&
+      (sourceFilter === 'all' || (sourceFilter === 'online') === Boolean(p.isCommunity))
   );
 
   const startNewPreset = () => {
@@ -1202,6 +1230,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
       {/* VIEW 1: BROWSE PRESETS */}
       {activeTab === 'browse' && (
         <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Format Filter Tabs */}
           <div className="flex flex-wrap items-center gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-[#14171F] border border-zinc-200 dark:border-zinc-800 w-fit">
             {(
@@ -1228,12 +1257,44 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
               </button>
             ))}
           </div>
+          {/* Source switch: Local only / All / Online only */}
+          <div
+            role="radiogroup"
+            aria-label="Which presets to show"
+            className="relative grid grid-cols-3 p-1 rounded-xl bg-zinc-100 dark:bg-[#14171F] border border-zinc-200 dark:border-zinc-800 w-full sm:w-auto"
+          >
+            <span
+              aria-hidden="true"
+              className="absolute top-1 bottom-1 left-1 w-[calc((100%-0.5rem)/3)] rounded-lg bg-white dark:bg-[#222735] shadow-xs transition-transform duration-200 ease-out"
+              style={{ transform: `translateX(${SOURCE_OPTIONS.findIndex((o) => o.id === sourceFilter) * 100}%)` }}
+            />
+            {SOURCE_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                role="radio"
+                aria-checked={sourceFilter === opt.id}
+                title={opt.hint}
+                onClick={() => setSourceFilter(opt.id)}
+                className={`relative z-10 min-h-[36px] px-3.5 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
+                  sourceFilter === opt.id
+                    ? 'text-zinc-900 dark:text-zinc-50'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          </div>
 
           {/* Preset Cards Grid */}
           {filteredPresets.length === 0 ? (
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#12141A] p-10 text-center">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                No creator presets match this format yet.
+                {sourceFilter === 'online' && !presets.some((p) => p.isCommunity)
+                  ? 'No online presets yet. Published presets from creators will show up here.'
+                  : 'No presets match these filters.'}
               </p>
             </div>
           ) : (
