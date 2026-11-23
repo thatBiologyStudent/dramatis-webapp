@@ -109,9 +109,9 @@ const OUTPUT_FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
 type PresetSource = 'local' | 'all' | 'online';
 const SOURCE_FILTER_KEY = 'dramatis_preset_source_v1';
 const SOURCE_OPTIONS: { id: PresetSource; label: string; hint: string }[] = [
-  { id: 'local', label: 'Local only', hint: 'Presets built into Dramatis and the ones saved in this browser' },
-  { id: 'all', label: 'All presets', hint: 'Local and online presets together' },
-  { id: 'online', label: 'Online only', hint: 'Presets published by creators for everyone' },
+  { id: 'local', label: 'Local only', hint: 'Your own presets saved in this browser that are not published' },
+  { id: 'all', label: 'All presets', hint: 'Your local presets and all published presets together' },
+  { id: 'online', label: 'Online only', hint: 'Published presets everyone can use' },
 ];
 
 function createEmptyField(index: number): PresetField {
@@ -309,7 +309,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
     }
   };
 
-  // Local = shipped with the app or saved in this browser (works offline); Online = published community presets.
+  // Local = your own unpublished presets in this browser; Online = published presets (built-in creator presets and community ones).
   const [sourceFilter, setSourceFilterState] = useState<PresetSource>(() => {
     try {
       const saved = localStorage.getItem(SOURCE_FILTER_KEY);
@@ -330,7 +330,8 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
   const filteredPresets = presets.filter(
     (p) =>
       (formatFilter === 'all' || p.formatStyle === formatFilter) &&
-      (sourceFilter === 'all' || (sourceFilter === 'online') === Boolean(p.isCommunity))
+      (sourceFilter === 'all' ||
+        (sourceFilter === 'local') === (!p.isBuiltIn && !p.isCommunity))
   );
 
   const startNewPreset = () => {
@@ -1292,8 +1293,8 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
           {filteredPresets.length === 0 ? (
             <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#12141A] p-10 text-center">
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {sourceFilter === 'online' && !presets.some((p) => p.isCommunity)
-                  ? 'No online presets yet. Published presets from creators will show up here.'
+                {sourceFilter === 'local' && !presets.some((p) => !p.isBuiltIn && !p.isCommunity)
+                  ? 'No local presets yet. Presets you create, extract or plug in show up here until you publish them.'
                   : 'No presets match these filters.'}
               </p>
             </div>
