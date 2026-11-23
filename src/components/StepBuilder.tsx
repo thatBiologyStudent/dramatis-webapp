@@ -42,6 +42,8 @@ import {
 import { resolveFieldTemplate } from '../data/presets';
 import { requestFieldAssistance } from '../utils/openaiClient';
 import { AvatarFrame } from './AvatarFrame';
+import { ImageCropDialog } from './ImageCropDialog';
+import { buildPortraitPrompt, openAlembicPortrait } from '../utils/alembic';
 import { downloadCharacterPng } from '../utils/pngCard';
 import { withBase } from '../utils/base';
 import { CreatorPageLink } from './CreatorPageLink';
@@ -121,6 +123,27 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
 
   const [mobileStepsOpen, setMobileStepsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // "Generate with Alembic": picture coming back from Alembic, shown in the crop window
+  const [alembicImage, setAlembicImage] = useState<string | null>(null);
+  const [alembicError, setAlembicError] = useState<string | null>(null);
+  const alembicCleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => alembicCleanup.current?.(), []);
+  const generateWithAlembic = () => {
+    setAlembicError(null);
+    alembicCleanup.current?.();
+    try {
+      alembicCleanup.current = openAlembicPortrait(
+        {
+          characterName: character.name.trim() || 'Character',
+          prompt: buildPortraitPrompt(character, preset, '2:3'),
+          aspect: '2:3',
+        },
+        (dataUrl) => setAlembicImage(dataUrl)
+      );
+    } catch (err) {
+      setAlembicError(err instanceof Error ? err.message : 'Could not open Alembic.');
+    }
+  };
   const [exportTab, setExportTab] = useState<ExportPreviewTab>('v2json');
   const [resolveMacros, setResolveMacros] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -430,21 +453,36 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
       {/* Workspace Utility Strip (below the 3-zone top bar) */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800/90">
         <div className="flex items-center gap-4 min-w-0">
-          <AvatarFrame
-            src={character.avatarUrl}
-            name={character.name}
-            size="md"
-            editable
-            cropAspects={['original', '2:3', '3:4', '1:1']}
-            maxOutput={1024}
-            onChangeAvatar={(dataUrl) =>
-              onUpdateCharacter((prev) => ({
-                ...prev,
-                avatarUrl: dataUrl,
-                updatedAt: new Date().toISOString(),
-              }))
-            }
-          />
+          <div className="flex flex-col items-center gap-1.5 shrink-0">
+            <AvatarFrame
+              src={character.avatarUrl}
+              name={character.name}
+              size="md"
+              editable
+              cropAspects={['original', '2:3', '3:4', '1:1']}
+              maxOutput={1024}
+              onChangeAvatar={(dataUrl) =>
+                onUpdateCharacter((prev) => ({
+                  ...prev,
+                  avatarUrl: dataUrl,
+                  updatedAt: new Date().toISOString(),
+                }))
+              }
+            />
+            <button
+              type="button"
+              onClick={generateWithAlembic}
+              title={alembicError || 'Open Alembic Generative Studio with a portrait request for this character'}
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap cursor-pointer ${
+                alembicError
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-violet-600 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-500/10'
+              }`}
+            >
+              <Wand2 className="w-3 h-3" />
+              <span>{alembicError ? 'Pop-up blocked' : 'Generate with Alembic'}</span>
+            </button>
+          </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <input
@@ -1764,6 +1802,24 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
           )}
         </section>
       </div>
+
+      {alembicImage && (
+        <ImageCropDialog
+          src={alembicImage}
+          aspects={['original', '2:3', '3:4', '1:1']}
+          maxOutput={1024}
+          title="Portrait from Alembic"
+          onCancel={() => setAlembicImage(null)}
+          onDone={(dataUrl) => {
+            setAlembicImage(null);
+            onUpdateCharacter((prev) => ({
+              ...prev,
+              avatarUrl: dataUrl,
+              updatedAt: new Date().toISOString(),
+            }));
+          }}
+        />
+      )}
 
       {/* Live Card Preview Slide-Over Sheet */}
       {previewOpen && (
