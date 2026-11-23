@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { withBase } from './utils/base';
+import { idbGet, idbSet, requestPersistentStorage, withTimeout } from './utils/storage';
 
 // Optional "back to" link, set at build time (e.g. on thatbio.vercel.app). Hidden when unset.
 const BACK_URL: string = import.meta.env.VITE_BACK_URL || '';
@@ -394,23 +395,74 @@ export default function App() {
   const [newCharPresetId, setNewCharPresetId] = useState<string>(BUILT_IN_PRESETS[0].id);
   const [newCharIncludeExtra, setNewCharIncludeExtra] = useState<boolean>(false);
 
+  // Characters and presets live in IndexedDB (room for portraits). The first render uses the
+  // localStorage copy; once IndexedDB has answered, its copy wins. Nothing is written back
+  // until that load finished, so a slow load can never overwrite saved work with old data.
+  const [storageReady, setStorageReady] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // Only write to IndexedDB in a session where reading it worked, so an older copy can never
+  // overwrite newer data there after a failed or slow load.
+  const idbUsable = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    requestPersistentStorage();
+    void (async () => {
+      try {
+        const [storedChars, storedPresets] = await withTimeout(
+          Promise.all([
+            idbGet<CharacterDraft[]>(STORAGE_KEYS.CHARACTERS),
+            idbGet<CreatorPreset[]>(STORAGE_KEYS.CUSTOM_PRESETS),
+          ]),
+          3000
+        );
+        if (cancelled) return;
+        if (Array.isArray(storedChars)) {
+          setCharacters(storedChars.filter((c) => RETIRED_EXAMPLE_CHARACTERS[c.id] !== c.updatedAt));
+        }
+        if (Array.isArray(storedPresets)) setCustomPresets(storedPresets);
+        idbUsable.current = true;
+      } catch {
+        // IndexedDB unavailable or stuck: keep working from localStorage
+      }
+      if (!cancelled) setStorageReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persist = useCallback(async (key: string, value: unknown) => {
+    let savedSomewhere = false;
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      savedSomewhere = true;
+    } catch {
+      // full or blocked: fine as long as IndexedDB takes it
+    }
+    if (idbUsable.current) {
+      try {
+        await withTimeout(idbSet(key, value), 5000);
+        savedSomewhere = true;
+      } catch {
+        // IndexedDB unavailable or stuck
+      }
+    }
+    setSaveError(
+      savedSomewhere
+        ? null
+        : 'Your latest changes could not be saved in this browser (storage is full or blocked). Export your characters from the Characters page to keep them safe.'
+    );
+  }, []);
+
   // Persist custom presets
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.CUSTOM_PRESETS, JSON.stringify(customPresets));
-    } catch {
-      // ignore
-    }
-  }, [customPresets]);
+    if (storageReady) void persist(STORAGE_KEYS.CUSTOM_PRESETS, customPresets);
+  }, [customPresets, storageReady, persist]);
 
   // Persist characters
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.CHARACTERS, JSON.stringify(characters));
-    } catch {
-      // ignore
-    }
-  }, [characters]);
+    if (storageReady) void persist(STORAGE_KEYS.CHARACTERS, characters);
+  }, [characters, storageReady, persist]);
 
   // Persist active character
   useEffect(() => {
@@ -802,6 +854,15 @@ export default function App() {
       </header>
 
       {/* Main Active Workspace */}
+      {saveError && (
+        <div
+          role="alert"
+          className="sticky top-14 z-20 border-b border-red-300/70 dark:border-red-500/40 bg-red-50 dark:bg-red-950/80 px-4 py-2.5 text-center text-xs text-red-700 dark:text-red-200"
+        >
+          {saveError}
+        </div>
+      )}
+
       <main className="flex-1">
         {view === 'studio' && !activeCharacter && (
           <div className="max-w-xl mx-auto px-4 pt-20 pb-24 text-center space-y-4">
