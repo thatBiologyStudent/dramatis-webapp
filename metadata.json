@@ -1,0 +1,6 @@
+{
+  "name": "Dramatis",
+  "description": "Step-by-step RP bot character studio PWA with pluggable creator preset layouts, manual drafting, and OpenAI-compatible AI co-writing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

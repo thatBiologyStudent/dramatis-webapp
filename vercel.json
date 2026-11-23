@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!assets/|pwa-|icon\\.svg|apple-touch-icon\\.png|manifest\\.webmanifest|sw\\.js|workbox-).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
