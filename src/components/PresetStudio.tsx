@@ -42,7 +42,7 @@ import {
   parseRawCharacterText,
   parseUploadedCharacterFile,
 } from '../utils/templateExtractor';
-import { AvatarFrame } from './AvatarFrame';
+import { AvatarFrame, CreatorAvatarPicker } from './AvatarFrame';
 import { CreatorPageLink } from './CreatorPageLink';
 import { DiscordMark, SubmitPublicModal } from './SubmitPublicModal';
 
@@ -177,6 +177,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
   const [extractFillInBlanks, setExtractFillInBlanks] = useState(true);
   const [extractExcludeNotes, setExtractExcludeNotes] = useState(true);
   const [extractSubmitPublic, setExtractSubmitPublic] = useState(false);
+  const [showPublishModal, setShowPublishModal] = useState(false);
   const [extractCreatorName, setExtractCreatorName] = useState('');
   const [extractTheme, setExtractTheme] = useState('');
   const [extractPlatform, setExtractPlatform] = useState('');
@@ -195,10 +196,13 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
       ? 'browse'
       : presetTab;
 
-  const openExtractModal = () => {
+  const openExtractModal = (forPublishing = false) => {
     setExtractError(null);
+    setExtractSubmitPublic(forPublishing);
     setShowExtractModal(true);
   };
+
+  const localCustomPresets = presets.filter((p) => !p.isBuiltIn && !p.isCommunity);
 
   const resetExtractModal = () => {
     extractAbortRef.current?.abort();
@@ -588,7 +592,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                 className="inline-flex items-center gap-2 min-h-[42px] rounded-xl border border-blue-200 dark:border-blue-500/40 bg-blue-50/80 dark:bg-blue-500/15 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:border-blue-500 transition-colors cursor-pointer"
               >
                 <Globe className="w-4 h-4" />
-                <span>Submit Publicly</span>
+                <span>Save &amp; Publish</span>
               </button>
             )}
             <button
@@ -622,17 +626,19 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
           </div>
         )}
 
-        {editingFromExtraction && (
+        {(editingFromExtraction || editingWantsPublicSubmit) && (
           <div className="rounded-xl border border-blue-200 dark:border-blue-500/30 bg-blue-50/70 dark:bg-blue-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-3">
               <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
                 <strong className="font-semibold text-zinc-900 dark:text-zinc-100">
-                  Extracted via AI.
+                  {editingFromExtraction ? 'Extracted via AI.' : 'New preset to publish.'}
                 </strong>{' '}
-                {editingWantsPublicSubmit
-                  ? 'Review the extracted steps below to verify no personal character lore leaked through, then click Submit Publicly to verify ownership and share it with all users.'
-                  : 'Review the extracted steps, starter templates, and writing tips below—adjust anything you like, then click Save Preset (or Submit Publicly if this is your own template).'}
+                {!editingFromExtraction
+                  ? 'Build your steps below, then click Save & Publish to share it with all users.'
+                  : editingWantsPublicSubmit
+                  ? 'Review the extracted steps below to verify no personal character lore leaked through, then click Save & Publish to share it with all users.'
+                  : 'Review the extracted steps, starter templates, and writing tips below—adjust anything you like, then click Save Preset (or Save & Publish if this is your own template).'}
               </p>
             </div>
             {editingWantsPublicSubmit && (
@@ -642,7 +648,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                 className="inline-flex items-center justify-center gap-1.5 min-h-[36px] rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700 shrink-0 cursor-pointer"
               >
                 <Globe className="w-3.5 h-3.5" />
-                <span>Submit Publicly</span>
+                <span>Save &amp; Publish</span>
               </button>
             )}
           </div>
@@ -650,24 +656,14 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
 
         {/* Preset Metadata */}
         <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#12141A] p-6 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-5 border-b border-zinc-200/70 dark:border-zinc-800/70">
-            <AvatarFrame
+          <div className="pb-5 border-b border-zinc-200/70 dark:border-zinc-800/70">
+            <CreatorAvatarPicker
               src={editingPreset.authorAvatar}
               name={editingPreset.author || 'Creator'}
-              size="md"
-              editable
-              onChangeAvatar={(dataUrl) =>
+              onChange={(dataUrl) =>
                 setEditingPreset({ ...editingPreset, authorAvatar: dataUrl })
               }
             />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Creator Profile Image
-              </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Hover and click the portrait to upload your creator avatar for the Preset Picker.
-              </p>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1007,7 +1003,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
   // Preset Gallery & Plug-In Hub
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 md:pb-14 space-y-8">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-2xl">
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Pluggable Character Blueprints · {presets.length} installed layouts
@@ -1023,7 +1019,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             type="button"
-            onClick={openExtractModal}
+            onClick={() => openExtractModal(false)}
             className="inline-flex items-center gap-2 min-h-[44px] rounded-xl border border-blue-200 dark:border-blue-500/40 bg-blue-50/80 dark:bg-blue-500/15 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:border-blue-500 transition-colors cursor-pointer"
           >
             <Sparkles className="w-4 h-4" />
@@ -1051,6 +1047,14 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
             <Plus className="w-4 h-4" />
             <span>Create Layout</span>
           </button>
+          <button
+            type="button"
+            onClick={() => setShowPublishModal(true)}
+            className="inline-flex items-center gap-2 min-h-[44px] rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors cursor-pointer"
+          >
+            <Globe className="w-4 h-4" />
+            <span>Publish a Preset</span>
+          </button>
         </div>
       </div>
 
@@ -1061,10 +1065,10 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
             <>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  Publish Templates to the Community Directory
+                  No account needed to use Dramatis
                 </p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">
-                  Optional Discord sign-in (username &amp; ID only—no personal email). Regular writing, drafts, and API keys stay 100% local in your browser without an account.
+                  Discord sign-in is <strong className="font-semibold text-zinc-700 dark:text-zinc-300">only for publishing your own presets</strong> to everyone. Writing, drafts, presets and API keys stay in your browser without signing in.
                 </p>
               </div>
               <button
@@ -1078,7 +1082,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                 ) : (
                   <DiscordMark className="w-4 h-4" />
                 )}
-                <span>{authLoading ? 'Waiting for Discord…' : 'Sign in with Discord'}</span>
+                <span>{authLoading ? 'Waiting for Discord…' : 'Sign in to publish'}</span>
               </button>
             </>
           ) : (
@@ -1121,7 +1125,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                     )}
                   </div>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Signed in for public submissions &amp; live template editing
+                    Signed in with Discord only to publish and manage your public presets
                   </p>
                 </div>
               </div>
@@ -1338,7 +1342,7 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                             className="inline-flex items-center gap-1.5 min-h-[38px] rounded-lg border border-blue-200 dark:border-blue-500/40 bg-blue-50/70 dark:bg-blue-500/15 px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-300 hover:border-blue-500 cursor-pointer"
                           >
                             <Globe className="w-3.5 h-3.5" />
-                            <span>Submit Publicly</span>
+                            <span>Publish</span>
                           </button>
                         )}
 
@@ -1888,6 +1892,12 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
                   Upload any creator character card (.json, .png with embedded card data, or .txt/.md) and let your connected AI strip character specifics and extract a reusable step-by-step preset.
                 </p>
+                {extractSubmitPublic && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                    <Globe className="w-3.5 h-3.5" />
+                    Publishing: after extraction you review the steps, then publish them.
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -2110,39 +2120,20 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                   </label>
                 </div>
 
-                <label className="inline-flex items-start gap-2 text-xs text-blue-700 dark:text-blue-300 cursor-pointer select-none rounded-lg border border-blue-200/80 dark:border-blue-500/30 bg-blue-50/60 dark:bg-blue-500/10 px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={extractSubmitPublic}
-                    onChange={(e) => setExtractSubmitPublic(e.target.checked)}
-                    className="mt-0.5 rounded border-zinc-300 dark:border-zinc-700 accent-blue-600"
-                  />
-                  <span>
-                    <strong className="font-semibold">This is my character</strong> — prompt me to verify ownership and submit this template publicly for all Dramatis users after review.
-                  </span>
-                </label>
               </div>
             </div>
 
             {/* Step 3: Optional Creator Attribution */}
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-[#0D0F14] p-4 space-y-3.5">
-              <div className="flex items-center gap-3.5">
-                <AvatarFrame
-                  src={extractAuthorAvatar}
-                  name={extractCreatorName || extractSource?.creatorName || 'Creator'}
-                  size="sm"
-                  editable
-                  onChangeAvatar={setExtractAuthorAvatar}
-                />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    3. Creator Attribution (Optional)
-                  </p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Click the avatar to upload the creator&apos;s portrait and link their profile page.
-                  </p>
-                </div>
-              </div>
+              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                3. Creator Attribution (Optional)
+              </p>
+              <CreatorAvatarPicker
+                src={extractAuthorAvatar}
+                name={extractCreatorName || extractSource?.creatorName || 'Creator'}
+                onChange={setExtractAuthorAvatar}
+                hint="The creator's picture, shown on the preset card. You can also change it later in the editor."
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -2244,6 +2235,140 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Publish a Preset Modal */}
+      {showPublishModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-xs p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Publish a Preset"
+        >
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#12141A] p-6 shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                  Publish a Preset
+                </h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                  Share your own preset layout with every Dramatis user. Published presets stay in the Preset Picker for everyone, with your name, picture and profile link.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPublishModal(false)}
+                aria-label="Close modal"
+                className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <ol className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-zinc-600 dark:text-zinc-400">
+              {[
+                ['1', 'Pick or make a preset'],
+                ['2', 'Sign in with Discord (only for publishing)'],
+                ['3', 'Add your picture & profile link'],
+              ].map(([n, label]) => (
+                <li
+                  key={n}
+                  className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-[#0D0F14] px-2.5 py-2"
+                >
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-600 text-white font-semibold shrink-0">
+                    {n}
+                  </span>
+                  <span className="leading-snug">{label}</span>
+                </li>
+              ))}
+            </ol>
+
+            <div className="space-y-2.5">
+              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Your presets</p>
+              {localCustomPresets.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 px-4 py-3 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  You don&apos;t have a preset of your own yet. Make one from one of your characters, or build one from scratch below.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {localCustomPresets.map((preset) => (
+                    <li
+                      key={preset.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <AvatarFrame src={preset.authorAvatar} name={preset.author} size="sm" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                            {preset.name}
+                          </p>
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                            {preset.fields.length} steps · {preset.formatStyle.toUpperCase()} · {preset.theme || 'General RP'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPublishModal(false);
+                          setSubmitModalPreset(preset);
+                        }}
+                        className="inline-flex items-center gap-1.5 min-h-[36px] rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 shrink-0 cursor-pointer"
+                      >
+                        <Globe className="w-3.5 h-3.5" />
+                        <span>Publish</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Or make a new one to publish</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPublishModal(false);
+                    openExtractModal(true);
+                  }}
+                  className="text-left rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-3 hover:border-emerald-500 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    From my character
+                  </span>
+                  <span className="block mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    AI turns one of your own character cards into a reusable layout.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPublishModal(false);
+                    setEditingFromExtraction(false);
+                    startNewPreset();
+                    setEditingWantsPublicSubmit(true);
+                  }}
+                  className="text-left rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-3 hover:border-emerald-500 transition-colors cursor-pointer"
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    From scratch
+                  </span>
+                  <span className="block mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Build the steps yourself, then click Save &amp; Publish.
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed pt-3 border-t border-zinc-200/70 dark:border-zinc-800/70">
+              Only publish layouts you made yourself. Your first preset is checked by the admin before it goes live; after that you can publish straight away.
+            </p>
           </div>
         </div>
       )}

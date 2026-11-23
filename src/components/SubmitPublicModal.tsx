@@ -2,7 +2,34 @@ import React, { useEffect, useState } from 'react';
 import { Check, Copy, Globe, Loader2, ShieldCheck, X } from 'lucide-react';
 import type { CreatorPreset, DiscordUser } from '../types';
 import { generateClientVerificationCode } from '../utils/communityClient';
-import { AvatarFrame } from './AvatarFrame';
+import { CreatorAvatarPicker } from './AvatarFrame';
+
+/** Last-used public creator details, so repeat publishers don't retype them. */
+const CREATOR_PROFILE_KEY = 'dramatis_creator_profile';
+
+interface SavedCreatorProfile {
+  author?: string;
+  authorPlatform?: string;
+  authorUrl?: string;
+  authorAvatar?: string;
+}
+
+function loadCreatorProfile(): SavedCreatorProfile {
+  try {
+    const raw = localStorage.getItem(CREATOR_PROFILE_KEY);
+    return raw ? (JSON.parse(raw) as SavedCreatorProfile) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCreatorProfile(profile: SavedCreatorProfile) {
+  try {
+    localStorage.setItem(CREATOR_PROFILE_KEY, JSON.stringify(profile));
+  } catch {
+    // storage full or blocked: not important
+  }
+}
 
 interface SubmitPublicModalProps {
   preset: CreatorPreset;
@@ -37,10 +64,16 @@ export const SubmitPublicModal: React.FC<SubmitPublicModalProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const [authorName, setAuthorName] = useState(preset.author || discordUser?.displayName || '');
-  const [authorPlatform, setAuthorPlatform] = useState(preset.authorPlatform || 'Wyvern');
-  const [authorUrl, setAuthorUrl] = useState(preset.authorUrl || '');
-  const [authorAvatar, setAuthorAvatar] = useState(preset.authorAvatar || '');
+  const [saved] = useState(loadCreatorProfile);
+  const presetAuthor = preset.author && preset.author !== 'Custom Creator' ? preset.author : '';
+  const [authorName, setAuthorName] = useState(
+    presetAuthor || saved.author || discordUser?.displayName || ''
+  );
+  const [authorPlatform, setAuthorPlatform] = useState(
+    preset.authorPlatform || saved.authorPlatform || 'Wyvern'
+  );
+  const [authorUrl, setAuthorUrl] = useState(preset.authorUrl || saved.authorUrl || '');
+  const [authorAvatar, setAuthorAvatar] = useState(preset.authorAvatar || saved.authorAvatar || '');
   const [verificationCode] = useState(() => generateClientVerificationCode());
   const [copiedCode, setCopiedCode] = useState(false);
   const [confirmOwned, setConfirmOwned] = useState(true);
@@ -105,6 +138,12 @@ export const SubmitPublicModal: React.FC<SubmitPublicModalProps> = ({
         authorAvatar: authorAvatar || discordUser.avatarUrl,
       };
       const res = await onSubmit(enriched, verificationCode);
+      saveCreatorProfile({
+        author: enriched.author,
+        authorPlatform: enriched.authorPlatform,
+        authorUrl: enriched.authorUrl,
+        authorAvatar: authorAvatar || undefined,
+      });
       setResult({
         autoApproved: res.autoApproved,
         webhookNotified: res.webhookNotified,
@@ -121,16 +160,16 @@ export const SubmitPublicModal: React.FC<SubmitPublicModalProps> = ({
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/55 backdrop-blur-xs p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Submit Template Publicly"
+      aria-label="Publish Preset"
     >
       <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#12141A] p-6 shadow-2xl space-y-5">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-              Submit Template Publicly
+              Publish Preset
             </h2>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 leading-relaxed">
-              Share <strong className="text-zinc-800 dark:text-zinc-200">{preset.name}</strong> permanently with all Dramatis users. You keep full edit control via your Discord account.
+              Share <strong className="text-zinc-800 dark:text-zinc-200">{preset.name}</strong> permanently with all Dramatis users. Your Discord account links it to you, so only you can edit or remove it later.
             </p>
           </div>
           <button
@@ -177,8 +216,11 @@ export const SubmitPublicModal: React.FC<SubmitPublicModalProps> = ({
             {/* Discord Sign-In Gate */}
             {!discordUser ? (
               <div className="rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/60 dark:bg-indigo-500/10 p-4 space-y-3">
+                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                  Step 1: Sign in with Discord to publish
+                </p>
                 <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">
-                  Sign in with Discord (username &amp; ID only—no personal email requested) so this published template is linked to you and only you can edit it later.
+                  Discord is only used for publishing: it marks this preset as yours so nobody else can change it. Dramatis only sees your Discord username, ID and avatar, never your email or messages. Everything else in Dramatis works without signing in.
                 </p>
                 <button
                   type="button"
@@ -256,23 +298,16 @@ export const SubmitPublicModal: React.FC<SubmitPublicModalProps> = ({
 
             {/* Creator Attribution */}
             <div className="space-y-3.5">
-              <div className="flex items-center gap-3.5">
-                <AvatarFrame
-                  src={authorAvatar || discordUser?.avatarUrl}
-                  name={authorName || 'Creator'}
-                  size="sm"
-                  editable
-                  onChangeAvatar={setAuthorAvatar}
-                />
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                    Public Creator Card Details
-                  </p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                    Click the avatar to upload a custom portrait (or leave as your Discord avatar).
-                  </p>
-                </div>
-              </div>
+              <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                Public creator details
+              </p>
+              <CreatorAvatarPicker
+                src={authorAvatar || discordUser?.avatarUrl}
+                name={authorName || 'Creator'}
+                onChange={setAuthorAvatar}
+                discordAvatarUrl={discordUser?.avatarUrl}
+                hint="Shown next to your presets, like on the built-in ones. Without an upload, your Discord picture is used."
+              />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
