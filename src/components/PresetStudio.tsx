@@ -2383,6 +2383,11 @@ export const PresetStudio: React.FC<PresetStudioProps> = ({
           onSignInDiscord={() => void onSignInDiscord()}
           onClose={() => setSubmitModalPreset(null)}
           onSubmit={onSubmitPublicPreset}
+          onSaveCreatorDetails={(details) => {
+            if (!details.isBuiltIn && !details.isCommunity) {
+              onSavePreset({ ...details, updatedAt: new Date().toISOString() });
+            }
+          }}
         />
       )}
     </div>

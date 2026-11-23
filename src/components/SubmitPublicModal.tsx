@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Check, Copy, Globe, Loader2, ShieldCheck, X } from 'lucide-react';
 import type { CreatorPreset, DiscordUser } from '../types';
 import { generateClientVerificationCode } from '../utils/communityClient';
@@ -38,6 +38,8 @@ interface SubmitPublicModalProps {
   authError: string | null;
   onSignInDiscord: () => void;
   onClose: () => void;
+  /** Saves the picture, name and links onto your own copy of the preset as well. */
+  onSaveCreatorDetails?: (preset: CreatorPreset) => void;
   onSubmit: (
     preset: CreatorPreset,
     verificationCode: string
@@ -63,6 +65,7 @@ export const SubmitPublicModal: React.FC<SubmitPublicModalProps> = ({
   onSignInDiscord,
   onClose,
   onSubmit,
+  onSaveCreatorDetails,
 }) => {
   const [saved] = useState(loadCreatorProfile);
   const presetAuthor = preset.author && preset.author !== 'Custom Creator' ? preset.author : '';
@@ -88,6 +91,25 @@ export const SubmitPublicModal: React.FC<SubmitPublicModalProps> = ({
       setAuthorName(discordUser.displayName);
     }
   }, [discordUser, authorName]);
+
+  // Keep your own copy of the preset in sync with the details entered here,
+  // so the picture and links stick even if you never finish publishing.
+  const saveDetailsRef = useRef(onSaveCreatorDetails);
+  saveDetailsRef.current = onSaveCreatorDetails;
+  useEffect(() => {
+    const next = {
+      author: authorName.trim() || preset.author,
+      authorPlatform: authorPlatform.trim() || undefined,
+      authorUrl: authorUrl.trim() || undefined,
+      authorAvatar: authorAvatar || preset.authorAvatar,
+    };
+    const changed =
+      next.author !== preset.author ||
+      next.authorPlatform !== preset.authorPlatform ||
+      next.authorUrl !== preset.authorUrl ||
+      next.authorAvatar !== preset.authorAvatar;
+    if (changed) saveDetailsRef.current?.({ ...preset, ...next });
+  }, [preset, authorName, authorPlatform, authorUrl, authorAvatar]);
 
   const isAutoVerified = Boolean(discordUser?.isAdmin || discordUser?.isVerifiedCreator);
 

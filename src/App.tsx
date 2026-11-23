@@ -281,11 +281,16 @@ export default function App() {
     await refreshCommunityData(discordUser);
   };
 
-  // Built-in presets (your thatBio presets first) -> Approved permanent community presets -> Local custom presets
-  const allPresets = useMemo(
-    () => [...BUILT_IN_PRESETS, ...communityPresets, ...customPresets],
-    [communityPresets, customPresets]
-  );
+  // thatBio's own presets always come first; every other preset (other creators'
+  // built-ins, published community presets, your local ones) follows newest first.
+  const allPresets = useMemo(() => {
+    const isOwner = (p: CreatorPreset) => Boolean(p.isBuiltIn) && p.id.startsWith('preset-thatbio-');
+    const all = [...BUILT_IN_PRESETS, ...communityPresets, ...customPresets];
+    const rest = all
+      .filter((p) => !isOwner(p))
+      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+    return [...all.filter(isOwner), ...rest];
+  }, [communityPresets, customPresets]);
 
   const [characters, setCharacters] = useState<CharacterDraft[]>(() => {
     const stored = safeReadJson<CharacterDraft[]>(STORAGE_KEYS.CHARACTERS, []);
