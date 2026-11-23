@@ -295,11 +295,46 @@ function extractBalancedJsonObject(raw: string): string {
     }
   }
 
-  const lastBrace = candidate.lastIndexOf('}');
-  if (lastBrace > firstBrace) {
-    return candidate.slice(firstBrace, lastBrace + 1);
+  throw new Error(
+    'The AI stopped before finishing the template (its answer was cut off). Try again, or pick a model with a larger output limit in API Setup.'
+  );
+}
+
+/**
+ * Fixes the most common ways models break JSON: raw line breaks/tabs inside strings
+ * and trailing commas before } or ]. Only used when strict parsing fails.
+ */
+function repairModelJson(json: string): string {
+  let out = '';
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < json.length; i++) {
+    const ch = json[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        out += ch;
+      } else if (ch === '\\') {
+        escaped = true;
+        out += ch;
+      } else if (ch === '"') {
+        inString = false;
+        out += ch;
+      } else if (ch === '\n') {
+        out += '\\n';
+      } else if (ch === '\r') {
+        out += '\\r';
+      } else if (ch === '\t') {
+        out += '\\t';
+      } else {
+        out += ch;
+      }
+    } else {
+      if (ch === '"') inString = true;
+      out += ch;
+    }
   }
-  throw new Error('AI returned incomplete JSON. Try increasing Max Output Tokens in API Setup or retrying.');
+  return out.replace(/,(\s*[}\]])/g, '$1');
 }
 
 function buildHeaders(apiKey: string, baseUrl: string): Record<string, string> {
@@ -431,45 +466,74 @@ export async function extractPresetFromCharacter(params: {
   const userPrompt = `${cardSections.join('\n\n')}\n\n---\n${userInstructionsBlock}`;
 
   // Use generous token allowance for full multi-step preset JSON
-  const extractionMaxTokens = Math.max(config.maxTokens || 0, 3200);
+  const extractionMaxTokens = Math.max(config.maxTokens || 0, 8000);
 
-  const response = await fetch(`${cleanBase}/chat/completions`, {
-    method: 'POST',
-    headers: buildHeaders(config.apiKey, cleanBase),
-    signal,
-    body: JSON.stringify({
-      model: config.selectedModel.trim(),
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.25,
-      max_tokens: extractionMaxTokens,
-      stream: false,
-    }),
-  });
+  const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userPrompt },
+  ];
 
-  if (!response.ok) {
-    let detail = '';
-    try {
-      const errJson = await response.json();
-      detail = errJson?.error?.message || errJson?.message || '';
-    } catch {
-      // ignore
+  // Long cards produce long presets. If the model still hits its output limit,
+  // ask it to continue where it stopped and stitch the parts together.
+  const MAX_CONTINUATIONS = 3;
+  let rawContent = '';
+  for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
+    const response = await fetch(`${cleanBase}/chat/completions`, {
+      method: 'POST',
+      headers: buildHeaders(config.apiKey, cleanBase),
+      signal,
+      body: JSON.stringify({
+        model: config.selectedModel.trim(),
+        messages,
+        temperature: 0.25,
+        max_tokens: extractionMaxTokens,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const errJson = await response.json();
+        detail = errJson?.error?.message || errJson?.message || '';
+      } catch {
+        // ignore
+      }
+      throw new Error(`AI extraction failed (HTTP ${response.status})${detail ? `: ${detail}` : ''}`);
     }
-    throw new Error(`AI extraction failed (HTTP ${response.status})${detail ? `: ${detail}` : ''}`);
+
+    const payload = await response.json();
+    const choice = payload?.choices?.[0];
+    const part: string = choice?.message?.content || '';
+    rawContent += part;
+    const cutOff = choice?.finish_reason === 'length' || choice?.finish_reason === 'max_tokens';
+    if (!cutOff || !part) break;
+
+    messages.push(
+      { role: 'assistant', content: part },
+      {
+        role: 'user',
+        content:
+          'Your answer was cut off. Continue the JSON exactly where it stopped. Output only the remaining characters: no repetition, no explanation, no code fences.',
+      }
+    );
   }
 
-  const payload = await response.json();
-  const rawContent: string = payload?.choices?.[0]?.message?.content || '';
   if (!rawContent.trim()) {
     throw new Error('The AI model returned an empty response. Try again or pick another model in API Setup.');
   }
 
   const jsonString = extractBalancedJsonObject(rawContent);
-  const { preset, error } = validateAndParsePresetJson(jsonString);
+  let { preset, error } = validateAndParsePresetJson(jsonString);
+  if (error?.startsWith('Invalid JSON')) {
+    ({ preset, error } = validateAndParsePresetJson(repairModelJson(jsonString)));
+  }
   if (error || !preset) {
-    throw new Error(error || 'Extracted JSON was not a valid preset schema.');
+    throw new Error(
+      error?.startsWith('Invalid JSON')
+        ? `The AI's template wasn't valid JSON (${error.replace('Invalid JSON: ', '')}). Try again; a different model may do better.`
+        : error || 'Extracted JSON was not a valid preset schema.'
+    );
   }
 
   // Filter out creator_notes if user explicitly excluded it
