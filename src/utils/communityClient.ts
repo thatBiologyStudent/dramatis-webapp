@@ -1,3 +1,4 @@
+import { withBase } from './base';
 import type { CreatorPreset, DiscordUser, ServerCommunityStatus } from '../types';
 
 // Held strictly in JS memory (never written to localStorage/sessionStorage)
@@ -55,7 +56,7 @@ async function parseApiResponse<T>(res: Response): Promise<T> {
 }
 
 export async function fetchServerStatus(): Promise<ServerCommunityStatus> {
-  const res = await fetch('/api/config/status', {
+  const res = await fetch(withBase('/api/config/status'), {
     credentials: 'include',
     headers: buildApiHeaders(false),
   });
@@ -63,7 +64,7 @@ export async function fetchServerStatus(): Promise<ServerCommunityStatus> {
 }
 
 export async function fetchCurrentDiscordUser(): Promise<DiscordUser | null> {
-  const res = await fetch('/api/auth/me', {
+  const res = await fetch(withBase('/api/auth/me'), {
     credentials: 'include',
     headers: buildApiHeaders(false),
   });
@@ -72,7 +73,7 @@ export async function fetchCurrentDiscordUser(): Promise<DiscordUser | null> {
 }
 
 export async function requestDiscordAuthUrl(): Promise<{ url: string; redirectUri: string }> {
-  const res = await fetch('/api/auth/discord/url', {
+  const res = await fetch(withBase('/api/auth/discord/url'), {
     credentials: 'include',
     headers: buildApiHeaders(false),
   });
@@ -81,7 +82,7 @@ export async function requestDiscordAuthUrl(): Promise<{ url: string; redirectUr
 
 export async function logoutDiscordSession(): Promise<void> {
   setMemoryAuthToken(null);
-  await fetch('/api/auth/logout', {
+  await fetch(withBase('/api/auth/logout'), {
     method: 'POST',
     credentials: 'include',
     headers: buildApiHeaders(false),
@@ -89,7 +90,7 @@ export async function logoutDiscordSession(): Promise<void> {
 }
 
 export async function fetchPublicCommunityPresets(): Promise<CreatorPreset[]> {
-  const res = await fetch('/api/presets/public', {
+  const res = await fetch(withBase('/api/presets/public'), {
     credentials: 'include',
     headers: buildApiHeaders(false),
   });
@@ -98,7 +99,7 @@ export async function fetchPublicCommunityPresets(): Promise<CreatorPreset[]> {
 }
 
 export async function fetchMyCommunitySubmissions(): Promise<CreatorPreset[]> {
-  const res = await fetch('/api/presets/mine', {
+  const res = await fetch(withBase('/api/presets/mine'), {
     credentials: 'include',
     headers: buildApiHeaders(false),
   });
@@ -107,7 +108,7 @@ export async function fetchMyCommunitySubmissions(): Promise<CreatorPreset[]> {
 }
 
 export async function fetchAdminReviewQueue(): Promise<CreatorPreset[]> {
-  const res = await fetch('/api/presets/pending', {
+  const res = await fetch(withBase('/api/presets/pending'), {
     credentials: 'include',
     headers: buildApiHeaders(false),
   });
@@ -119,7 +120,7 @@ export async function submitPublicPresetApi(
   preset: CreatorPreset,
   verificationCode: string
 ): Promise<{ preset: CreatorPreset; autoApproved: boolean; webhookNotified: boolean }> {
-  const res = await fetch('/api/presets/submit', {
+  const res = await fetch(withBase('/api/presets/submit'), {
     method: 'POST',
     credentials: 'include',
     headers: buildApiHeaders(true),
@@ -132,7 +133,7 @@ export async function updateCommunityPresetApi(
   presetId: string,
   preset: CreatorPreset
 ): Promise<CreatorPreset> {
-  const res = await fetch(`/api/presets/${encodeURIComponent(presetId)}`, {
+  const res = await fetch(withBase(`/api/presets/${encodeURIComponent(presetId)}`), {
     method: 'PUT',
     credentials: 'include',
     headers: buildApiHeaders(true),
@@ -143,7 +144,7 @@ export async function updateCommunityPresetApi(
 }
 
 export async function deleteCommunityPresetApi(presetId: string): Promise<void> {
-  const res = await fetch(`/api/presets/${encodeURIComponent(presetId)}`, {
+  const res = await fetch(withBase(`/api/presets/${encodeURIComponent(presetId)}`), {
     method: 'DELETE',
     credentials: 'include',
     headers: buildApiHeaders(false),
@@ -156,7 +157,7 @@ export async function reviewCommunityPresetApi(
   decision: 'approved' | 'rejected',
   options: { reviewNote?: string; grantVerifiedCreator?: boolean }
 ): Promise<CreatorPreset | null> {
-  const res = await fetch(`/api/presets/${encodeURIComponent(presetId)}/review`, {
+  const res = await fetch(withBase(`/api/presets/${encodeURIComponent(presetId)}/review`), {
     method: 'POST',
     credentials: 'include',
     headers: buildApiHeaders(true),

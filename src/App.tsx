@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { withBase } from './utils/base';
 import { BookOpen, Layers, SlidersHorizontal, Users, X } from 'lucide-react';
 import {
   ApiConfig,
@@ -675,7 +676,7 @@ export default function App() {
             className="inline-flex items-center gap-2.5 font-display text-lg font-bold tracking-tight text-zinc-950 dark:text-zinc-50 whitespace-nowrap shrink-0 cursor-pointer"
           >
             <img
-              src="/assets/aistudio/image_8ee5925a.png"
+              src={withBase('/assets/aistudio/image_8ee5925a.png')}
               alt="Dramatis logo"
               className="w-8 h-8 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-800 shrink-0"
             />

@@ -6,7 +6,10 @@ import {defineConfig} from 'vite';
 import {VitePWA} from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
+  // Path the app is served under, e.g. /tools/dramatis/ on thatbio.vercel.app. Defaults to /.
+  const base = process.env.APP_BASE || '/';
   return {
+    base,
     plugins: [
       react(),
       tailwindcss(),
@@ -14,30 +17,30 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
         includeAssets: ['icon.svg', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png', 'pwa-maskable-512x512.png'],
         manifest: {
-          id: '/',
+          id: base,
           name: 'Dramatis — RP Character Studio',
           short_name: 'Dramatis',
           description: 'Step-by-step RP bot character studio with pluggable creator preset layouts, manual drafting, and OpenAI-compatible AI co-writing.',
           theme_color: '#0F1115',
           background_color: '#0F1115',
           display: 'standalone',
-          start_url: '/',
-          scope: '/',
+          start_url: base,
+          scope: base,
           icons: [
             {
-              src: '/assets/aistudio/image_8ee5925a.png',
+              src: 'assets/aistudio/image_8ee5925a.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-192x192.png',
+              src: 'pwa-192x192.png',
               sizes: '192x192',
               type: 'image/png',
               purpose: 'any',
             },
             {
-              src: '/pwa-maskable-512x512.png',
+              src: 'pwa-maskable-512x512.png',
               sizes: '512x512',
               type: 'image/png',
               purpose: 'maskable',
@@ -46,7 +49,7 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff,woff2}'],
-          navigateFallbackDenylist: [/^\/api\//],
+          navigateFallbackDenylist: [/\/api\//],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

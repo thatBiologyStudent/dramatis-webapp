@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Upload, User } from 'lucide-react';
+import { withBase } from '../utils/base';
 
 interface AvatarFrameProps {
   src?: string;
@@ -87,7 +88,7 @@ export const AvatarFrame: React.FC<AvatarFrameProps> = ({
     <div className={`relative shrink-0 overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-[#161922] ${SIZE_CLASSES[size]}`}>
       {showImage ? (
         <img
-          src={src}
+          src={withBase(src || '')}
           alt={name ? `Portrait of ${name}` : 'Character portrait'}
           referrerPolicy="no-referrer"
           onError={() => setImgFailed(true)}

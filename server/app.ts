@@ -328,6 +328,10 @@ export function createApiApp() {
 
     const sendPopupResult = (payload: Record<string, unknown>, status = 200) => {
       const serialized = safeJsonForInlineScript(payload);
+      // Only hand the session token to Dramatis itself, never to another opener origin.
+      const appBase = getBaseAppUrl(req);
+      const appOrigin = safeJsonForInlineScript(new URL(appBase).origin);
+      const appHome = safeJsonForInlineScript(appBase + '/');
       res.status(status).setHeader('Content-Type', 'text/html; charset=utf-8').send(`<!doctype html>
 <html lang="en">
   <head><meta charset="utf-8" /><title>Dramatis Discord Sign-In</title></head>
@@ -340,10 +344,10 @@ export function createApiApp() {
       (function () {
         var data = ${serialized};
         if (window.opener) {
-          window.opener.postMessage(data, '*');
+          window.opener.postMessage(data, ${appOrigin});
           window.close();
         } else {
-          window.location.href = '/';
+          window.location.href = ${appHome};
         }
       })();
     </script>
