@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { withBase } from './utils/base';
-import { BookOpen, Layers, SlidersHorizontal, Users, X } from 'lucide-react';
+
+// Optional "back to" link, set at build time (e.g. on thatbio.vercel.app). Hidden when unset.
+const BACK_URL: string = import.meta.env.VITE_BACK_URL || '';
+const BACK_LABEL: string = import.meta.env.VITE_BACK_LABEL || 'Back';
+import { ArrowLeft, BookOpen, Layers, SlidersHorizontal, Users, X } from 'lucide-react';
 import {
   ApiConfig,
   AppView,
@@ -732,6 +736,17 @@ export default function App() {
       <header className="sticky top-0 z-30 h-14 border-b border-zinc-200 dark:border-zinc-800/90 bg-white/90 dark:bg-[#090A0D]/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-8">
           {/* Zone 1: Brand logo + wordmark */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {BACK_URL && (
+            <a
+              href={BACK_URL}
+              title={`Back to ${BACK_LABEL}`}
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 px-2 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-950 dark:hover:text-zinc-50 hover:border-zinc-400 dark:hover:border-zinc-600 whitespace-nowrap"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{BACK_LABEL}</span>
+            </a>
+          )}
           <button
             type="button"
             onClick={() => setView('characters')}
@@ -742,8 +757,9 @@ export default function App() {
               alt="Dramatis logo"
               className="w-8 h-8 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-800 shrink-0"
             />
-            <span>Dramatis</span>
+            <span className={BACK_URL ? 'hidden sm:inline' : ''}>Dramatis</span>
           </button>
+          </div>
 
           {/* Zone 2: 4 clean single-line text navigation links */}
           <nav
