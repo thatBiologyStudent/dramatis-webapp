@@ -318,8 +318,27 @@ export default function App() {
     const rejectedIds = new Set(
       mySubmissions.filter((p) => p.communityStatus === 'rejected').map((p) => p.id)
     );
+    // Presets published before local copies were linked: recognise them by name plus
+    // the exact same steps (publishing keeps step ids; "Duplicate & Edit" gives new ones).
+    const signature = (p: CreatorPreset) =>
+      `${p.name.trim().toLowerCase()}|${p.fields.map((f) => `${f.id}:${f.label}`).join('|')}`;
+    const liveBySignature = new Map(communityPresets.map((p) => [signature(p), p.id]));
+    const pendingBySignature = new Map(
+      mySubmissions.filter((p) => p.communityStatus === 'pending').map((p) => [signature(p), p.id])
+    );
     for (const local of customPresets) {
-      if (!local.submittedAs) continue;
+      if (!local.submittedAs) {
+        const liveMatch = liveBySignature.get(signature(local));
+        const pendingMatch = pendingBySignature.get(signature(local));
+        if (liveMatch) {
+          replaceLocalWithOnline(local.id, liveMatch);
+        } else if (pendingMatch) {
+          setCustomPresets((prev) =>
+            prev.map((p) => (p.id === local.id ? { ...p, submittedAs: pendingMatch } : p))
+          );
+        }
+        continue;
+      }
       if (liveIds.has(local.submittedAs)) {
         replaceLocalWithOnline(local.id, local.submittedAs);
       } else if (rejectedIds.has(local.submittedAs)) {
