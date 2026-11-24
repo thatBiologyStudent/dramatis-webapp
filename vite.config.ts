@@ -81,9 +81,10 @@ export default defineConfig(() => {
             },
           ],
         },
+        // No service worker while running locally (Start Dramatis.bat / npm run dev): the dev worker
+        // hangs behind the Express middleware, and the local app needs no offline copy anyway.
         devOptions: {
-          enabled: true,
-          type: 'module',
+          enabled: false,
         },
       }),
       // Copies src/assets into dist/ so root-relative URLs like
