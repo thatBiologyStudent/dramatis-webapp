@@ -348,6 +348,10 @@ export const StepBuilder: React.FC<StepBuilderProps> = ({
         userDirection: aiDirection,
         actionMode: action,
         onChunk: (partial) => setAiOutput(partial),
+        onTruncated: (limit) =>
+          setAiError(
+            `The suggestion was cut off at the output limit (${limit} tokens). Raise "Max Output Tokens per Step" in API Setup, or use a model that doesn't think out loud, then try again.`
+          ),
         signal: controller.signal,
       });
       setAiOutput(finalText);

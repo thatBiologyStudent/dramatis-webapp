@@ -392,7 +392,7 @@ export const ApiSettingsView: React.FC<ApiSettingsViewProps> = ({
               id="max-tokens-slider"
               type="range"
               min={150}
-              max={1600}
+              max={16000}
               step={50}
               value={apiConfig.maxTokens}
               onChange={(e) => onUpdateApiConfig({ maxTokens: Number(e.target.value) })}

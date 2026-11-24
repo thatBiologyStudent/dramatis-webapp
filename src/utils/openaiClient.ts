@@ -186,8 +186,24 @@ interface FieldAssistParams {
   userDirection: string;
   actionMode: AiAssistAction;
   onChunk?: (accumulatedText: string) => void;
+  /** Called when the answer stopped because it reached the output limit (it is cut off). */
+  onTruncated?: (limit: number) => void;
   signal?: AbortSignal;
 }
+
+/**
+ * Output budget for one step. The setting is a floor: every step gets at least ~3x its token
+ * target plus headroom, because thinking models (DeepSeek R1, GLM, Qwen and others) count their
+ * hidden reasoning against the same limit, and brainstorms write three options.
+ */
+export function stepOutputLimit(config: ApiConfig, field: PresetField, actionMode: AiAssistAction): number {
+  const target = Math.max(field.tokenTarget || 0, 100);
+  const factor = actionMode === 'brainstorm' ? 4 : 3;
+  // You only pay for tokens actually generated, so a generous cap costs nothing extra.
+  return Math.min(Math.max(config.maxTokens || 0, target * factor + 3000), 16000);
+}
+
+const isLengthStop = (reason: unknown) => reason === 'length' || reason === 'max_tokens';
 
 export async function requestFieldAssistance({
   config,
@@ -197,8 +213,10 @@ export async function requestFieldAssistance({
   userDirection,
   actionMode,
   onChunk,
+  onTruncated,
   signal,
 }: FieldAssistParams): Promise<string> {
+  const outputLimit = stepOutputLimit(config, field, actionMode);
   const cleanBase = normalizeBaseUrl(config.baseUrl);
   if (!config.selectedModel.trim()) {
     throw new Error('No model selected. Open API Setup to fetch models and pick one.');
@@ -267,7 +285,7 @@ export async function requestFieldAssistance({
         { role: 'user', content: userPromptParts.join('\n\n') },
       ],
       temperature: config.temperature,
-      max_tokens: config.maxTokens,
+      max_tokens: outputLimit,
       stream: true,
     }),
   });
@@ -290,6 +308,7 @@ export async function requestFieldAssistance({
     const json = await response.json();
     const content = json?.choices?.[0]?.message?.content || '';
     if (onChunk) onChunk(content);
+    if (isLengthStop(json?.choices?.[0]?.finish_reason)) onTruncated?.(outputLimit);
     return content;
   }
 
@@ -298,13 +317,14 @@ export async function requestFieldAssistance({
   const decoder = new TextDecoder('utf-8');
   let buffer = '';
   let accumulated = '';
+  let finishReason: unknown = null;
 
   while (true) {
     const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
+    if (!done) buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split('\n');
-    buffer = lines.pop() ?? '';
+    // Keep an unfinished line for the next read; at the end of the stream, parse it too.
+    buffer = done ? '' : lines.pop() ?? '';
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -313,6 +333,7 @@ export async function requestFieldAssistance({
       if (dataStr === '[DONE]') continue;
       try {
         const parsed = JSON.parse(dataStr);
+        if (parsed?.choices?.[0]?.finish_reason) finishReason = parsed.choices[0].finish_reason;
         const delta = parsed?.choices?.[0]?.delta?.content ?? parsed?.choices?.[0]?.message?.content ?? '';
         if (delta) {
           accumulated += delta;
@@ -322,7 +343,9 @@ export async function requestFieldAssistance({
         // Skip partial or keepalive chunks
       }
     }
+    if (done) break;
   }
 
+  if (isLengthStop(finishReason)) onTruncated?.(outputLimit);
   return accumulated.trim();
 }

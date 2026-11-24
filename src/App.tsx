@@ -60,7 +60,7 @@ const DEFAULT_API_CONFIG: ApiConfig = {
   selectedModel: '',
   availableModels: [],
   temperature: 0.75,
-  maxTokens: 650,
+  maxTokens: 2000,
   globalStylePrompt: '',
 };
 
