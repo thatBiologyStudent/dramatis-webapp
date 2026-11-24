@@ -95,6 +95,10 @@ Environment variables (see `.env.example`):
 
 Keep the secrets in your host's environment settings, never in the repository.
 
+## License
+
+Dramatis is licensed under the [GNU Affero General Public License v3.0](LICENSE). You can use, change and share it, including running your own hosted copy, as long as you publish your changes under the same license, also when people only use your copy over the web.
+
 ## More from me
 
 Dramatis is part of my bot-making toolbox at [thatbio.vercel.app](https://thatbio.vercel.app), next to [Alembic Generative Studio](https://github.com/thatBiologyStudent/alembic-generative-studio), [Bios Background Remover](https://github.com/thatBiologyStudent/bios-background-remover), the [Flow Sidecar Orchestrator](https://github.com/thatBiologyStudent/flow-sidecar-orchestrator) and the [Bing Image Sidecar Orchestrator](https://github.com/thatBiologyStudent/bing-image-sidecar-orchestrator). My characters and worlds are on [Wyvern](https://app.wyvern.chat/profiles/u1yASrRk7FMaaEZlKLZYzYMn36t2).
